@@ -318,9 +318,11 @@ let geoPhase = 0;
 let audioReady = false;
 
 // ── エントリーアニメ ─────────────────────────────
-let entryAnim    = false;
-let entryAnimT   = 0;
-let entryTimerId = null;
+let entryAnim        = false;
+let entryAnimT       = 0;
+let entryTimerId     = null;
+let earlyAudioStarted  = false;
+let earlyAudioTimerId  = null;
 
 // ── アンビエント音 ────────────────────────────────
 let ambCtx = null, ambDrone = null, ambGain = null;
@@ -368,6 +370,33 @@ function stopAmbient() {
   ambGain.gain.setTargetAtTime(0, ambCtx.currentTime, 0.4);
 }
 
+function playGameStartSfx() {
+  initACtx();
+  if (!actx) return;
+  const t = actx.currentTime;
+  // 上昇する衝撃音
+  const g1 = actx.createGain();
+  g1.gain.setValueAtTime(0, t);
+  g1.gain.linearRampToValueAtTime(0.55, t + 0.04);
+  g1.gain.exponentialRampToValueAtTime(0.001, t + 0.65);
+  g1.connect(actx.destination);
+  const o1 = actx.createOscillator();
+  o1.type = 'sine';
+  o1.frequency.setValueAtTime(110, t);
+  o1.frequency.exponentialRampToValueAtTime(550, t + 0.3);
+  o1.connect(g1); o1.start(t); o1.stop(t + 0.65);
+  // きらめきの高音
+  const g2 = actx.createGain();
+  g2.gain.setValueAtTime(0.28, t + 0.12);
+  g2.gain.exponentialRampToValueAtTime(0.001, t + 0.55);
+  g2.connect(actx.destination);
+  const o2 = actx.createOscillator();
+  o2.type = 'triangle';
+  o2.frequency.setValueAtTime(1320, t + 0.12);
+  o2.frequency.exponentialRampToValueAtTime(2640, t + 0.45);
+  o2.connect(g2); o2.start(t + 0.12); o2.stop(t + 0.55);
+}
+
 function haversine(lat1, lng1, lat2, lng2) {
   const R = 6371000;
   const f1 = lat1*Math.PI/180, f2 = lat2*Math.PI/180;
@@ -391,6 +420,17 @@ function initGeo() {
         entryAnim = true;
         entryAnimT = performance.now();
         if (entryTimerId) clearTimeout(entryTimerId);
+        if (earlyAudioTimerId) { clearTimeout(earlyAudioTimerId); earlyAudioTimerId = null; }
+        earlyAudioStarted = false;
+        playGameStartSfx();
+        const audioDelay = Math.max(0, 2300 - CHART.offset_ms);
+        earlyAudioTimerId = setTimeout(() => {
+          earlyAudioTimerId = null;
+          initACtx(); audio.currentTime = 0; audio.volume = 1.0;
+          audio.play()
+            .then(() => { syncOff(); resetNPtr(); earlyAudioStarted = true; })
+            .catch(() => {});
+        }, audioDelay);
         entryTimerId = setTimeout(() => {
           entryTimerId = null;
           entryAnim = false;
@@ -412,8 +452,19 @@ function toggleGeoDebug() {
   geoDebug = !geoDebug;
   if (geoDebug) {
     if (entryTimerId) { clearTimeout(entryTimerId); entryTimerId = null; }
+    if (earlyAudioTimerId) { clearTimeout(earlyAudioTimerId); earlyAudioTimerId = null; }
+    earlyAudioStarted = false;
     entryAnim = true;
     entryAnimT = performance.now();
+    playGameStartSfx();
+    const audioDelay = Math.max(0, 2300 - CHART.offset_ms);
+    earlyAudioTimerId = setTimeout(() => {
+      earlyAudioTimerId = null;
+      initACtx(); audio.currentTime = 0; audio.volume = 1.0;
+      audio.play()
+        .then(() => { syncOff(); resetNPtr(); earlyAudioStarted = true; })
+        .catch(() => {});
+    }, audioDelay);
     entryTimerId = setTimeout(() => {
       entryTimerId = null;
       entryAnim = false;
@@ -421,6 +472,8 @@ function toggleGeoDebug() {
     }, 2300);
   } else {
     if (entryTimerId) { clearTimeout(entryTimerId); entryTimerId = null; }
+    if (earlyAudioTimerId) { clearTimeout(earlyAudioTimerId); earlyAudioTimerId = null; }
+    earlyAudioStarted = false;
     entryAnim = false;
     if (gs === GS.PLAYING || gs === GS.PAUSED) { audio.pause(); gs = GS.TITLE; }
   }
@@ -1246,11 +1299,16 @@ function startGame(){
   gs=GS.PLAYING;
   stopAmbient();
   initACtx();
-  audio.currentTime=0;
-  audio.volume=1.0;
-  audio.play()
-    .then(() => { syncOff(); resetNPtr(); })
-    .catch(err => console.warn('[RhythmGame] audio.play():', err.name));
+  if (earlyAudioStarted) {
+    earlyAudioStarted = false;
+    syncOff(); resetNPtr();
+  } else {
+    audio.currentTime=0;
+    audio.volume=1.0;
+    audio.play()
+      .then(() => { syncOff(); resetNPtr(); })
+      .catch(err => console.warn('[RhythmGame] audio.play():', err.name));
+  }
 }
 function resetToTitle(){
   gs=GS.TITLE; audio.pause(); audio.currentTime=0;
