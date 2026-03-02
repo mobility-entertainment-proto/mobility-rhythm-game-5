@@ -146,6 +146,7 @@ canvas{display:block;position:fixed;top:0;left:0;width:100%;height:100%;}
     </div>
 
     <button class="s-start-btn" id="s-start-btn" onclick="saveSettingsAndStart()">ゲームを始める ▶</button>
+    <p style="text-align:center;font-size:10px;color:#334;margin-top:14px;letter-spacing:1px;">BUILD: 2026-03-02 23:15 JST</p>
   </div>
 </div>
 
@@ -182,21 +183,21 @@ function initThree() {
 
   threeAmbLight = new THREE.AmbientLight(0xffffff, 1.2);
   threeScene.add(threeAmbLight);
-  threeDirLight = new THREE.DirectionalLight(0xfffbe0, 1.8);
+  threeDirLight = new THREE.DirectionalLight(0xffffff, 1.8);
   threeDirLight.position.set(5, 20, 4);
   threeScene.add(threeDirLight);
   const fillLight = new THREE.DirectionalLight(0xaaddff, 0.5);
   fillLight.position.set(-4, 8, -6);
   threeScene.add(fillLight);
 
-  const roadMat = new THREE.MeshLambertMaterial({ color: 0x787878 });
+  const roadMat = new THREE.MeshLambertMaterial({ color: 0x484848 });
   const roadMesh = new THREE.Mesh(new THREE.PlaneGeometry(ROAD_W, ROAD_LEN), roadMat);
   roadMesh.rotation.x = -Math.PI / 2;
   roadMesh.position.set(0, 0, -ROAD_LEN / 2);
   threeScene.add(roadMesh);
 
   for (const side of [-1, 1]) {
-    const mat = new THREE.MeshLambertMaterial({ color: 0x9b7540 });
+    const mat = new THREE.MeshLambertMaterial({ color: 0x6b4c2a });
     const mesh = new THREE.Mesh(new THREE.PlaneGeometry(5, ROAD_LEN), mat);
     mesh.rotation.x = -Math.PI / 2;
     mesh.position.set(side * (ROAD_W / 2 + 2.5), -0.01, -ROAD_LEN / 2);
@@ -281,7 +282,7 @@ function updateThree(ts) {
     threeScene.fog.far  = 280 + prog * 60;
     threeAmbLight.color.setHex(0xffffff);
     threeAmbLight.intensity = 1.2;
-    threeDirLight.color.setHex(0xfffbe0);
+    threeDirLight.color.setHex(0xffffff);
     threeDirLight.intensity = 1.8;
   } else {
     threeRenderer.setClearColor(0x87ceeb);
@@ -290,7 +291,7 @@ function updateThree(ts) {
     threeScene.fog.far  = 280;
     threeAmbLight.color.setHex(0xffffff);
     threeAmbLight.intensity = 1.2;
-    threeDirLight.color.setHex(0xfffbe0);
+    threeDirLight.color.setHex(0xffffff);
     threeDirLight.intensity = 1.8;
   }
 
