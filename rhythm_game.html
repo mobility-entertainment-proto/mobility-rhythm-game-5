@@ -371,30 +371,42 @@ function stopAmbient() {
 }
 
 function playGameStartSfx() {
-  initACtx();
   if (!actx) return;
   const t = actx.currentTime;
-  // 上昇する衝撃音
-  const g1 = actx.createGain();
-  g1.gain.setValueAtTime(0, t);
-  g1.gain.linearRampToValueAtTime(0.55, t + 0.04);
-  g1.gain.exponentialRampToValueAtTime(0.001, t + 0.65);
-  g1.connect(actx.destination);
-  const o1 = actx.createOscillator();
-  o1.type = 'sine';
-  o1.frequency.setValueAtTime(110, t);
-  o1.frequency.exponentialRampToValueAtTime(550, t + 0.3);
-  o1.connect(g1); o1.start(t); o1.stop(t + 0.65);
-  // きらめきの高音
-  const g2 = actx.createGain();
-  g2.gain.setValueAtTime(0.28, t + 0.12);
-  g2.gain.exponentialRampToValueAtTime(0.001, t + 0.55);
-  g2.connect(actx.destination);
-  const o2 = actx.createOscillator();
-  o2.type = 'triangle';
-  o2.frequency.setValueAtTime(1320, t + 0.12);
-  o2.frequency.exponentialRampToValueAtTime(2640, t + 0.45);
-  o2.connect(g2); o2.start(t + 0.12); o2.stop(t + 0.55);
+  // ── クラッカー「パン」(フィルタードノイズ) ──
+  const bufLen = actx.sampleRate * 0.07;
+  const buf = actx.createBuffer(1, bufLen, actx.sampleRate);
+  const dat = buf.getChannelData(0);
+  for (let i = 0; i < bufLen; i++) dat[i] = (Math.random()*2-1) * Math.pow(1-i/bufLen, 1.2);
+  const popSrc = actx.createBufferSource(); popSrc.buffer = buf;
+  const bpf = actx.createBiquadFilter(); bpf.type='bandpass'; bpf.frequency.value=1400; bpf.Q.value=0.4;
+  const popG = actx.createGain(); popG.gain.setValueAtTime(1.8, t); popG.gain.exponentialRampToValueAtTime(0.001, t+0.1);
+  popSrc.connect(bpf); bpf.connect(popG); popG.connect(actx.destination); popSrc.start(t);
+  // ── ホイッスル(ビブラート付き) ──
+  const wg = actx.createGain();
+  wg.gain.setValueAtTime(0, t+0.03);
+  wg.gain.linearRampToValueAtTime(0.42, t+0.09);
+  wg.gain.setValueAtTime(0.42, t+0.32);
+  wg.gain.exponentialRampToValueAtTime(0.001, t+0.52);
+  wg.connect(actx.destination);
+  const wo = actx.createOscillator(); wo.type='sine';
+  wo.frequency.setValueAtTime(2200, t+0.03);
+  wo.frequency.linearRampToValueAtTime(3000, t+0.22);
+  wo.frequency.setValueAtTime(2700, t+0.28);
+  const lfo = actx.createOscillator(); lfo.frequency.value=10;
+  const lfog = actx.createGain(); lfog.gain.value=90;
+  lfo.connect(lfog); lfog.connect(wo.frequency);
+  wo.connect(wg);
+  lfo.start(t+0.03); wo.start(t+0.03); lfo.stop(t+0.55); wo.stop(t+0.55);
+  // ── きらめき音符カスケード(C5〜C6付近の音階) ──
+  [2093,2637,3136,4186,3520,2794,3951,2349].forEach((f, i) => {
+    const d = 0.08 + i * 0.048;
+    const sg = actx.createGain();
+    sg.gain.setValueAtTime(0.13, t+d); sg.gain.exponentialRampToValueAtTime(0.001, t+d+0.28);
+    sg.connect(actx.destination);
+    const so = actx.createOscillator(); so.type='sine'; so.frequency.value=f;
+    so.connect(sg); so.start(t+d); so.stop(t+d+0.3);
+  });
 }
 
 function haversine(lat1, lng1, lat2, lng2) {
@@ -422,11 +434,11 @@ function initGeo() {
         if (entryTimerId) clearTimeout(entryTimerId);
         if (earlyAudioTimerId) { clearTimeout(earlyAudioTimerId); earlyAudioTimerId = null; }
         earlyAudioStarted = false;
-        playGameStartSfx();
         const audioDelay = Math.max(0, 2300 - CHART.offset_ms);
         earlyAudioTimerId = setTimeout(() => {
           earlyAudioTimerId = null;
-          initACtx(); audio.currentTime = 0; audio.volume = 1.0;
+          initACtx(); playGameStartSfx();
+          audio.currentTime = 0; audio.volume = 1.0;
           audio.play()
             .then(() => { syncOff(); resetNPtr(); earlyAudioStarted = true; })
             .catch(() => {});
@@ -456,11 +468,11 @@ function toggleGeoDebug() {
     earlyAudioStarted = false;
     entryAnim = true;
     entryAnimT = performance.now();
-    playGameStartSfx();
     const audioDelay = Math.max(0, 2300 - CHART.offset_ms);
     earlyAudioTimerId = setTimeout(() => {
       earlyAudioTimerId = null;
-      initACtx(); audio.currentTime = 0; audio.volume = 1.0;
+      initACtx(); playGameStartSfx();
+      audio.currentTime = 0; audio.volume = 1.0;
       audio.play()
         .then(() => { syncOff(); resetNPtr(); earlyAudioStarted = true; })
         .catch(() => {});
