@@ -170,33 +170,33 @@ function initThree() {
     powerPreference: 'low-power'
   });
   threeRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
-  threeRenderer.setClearColor(0x040810);
+  threeRenderer.setClearColor(0x87ceeb);
   threeRenderer.setSize(window.innerWidth, window.innerHeight);
 
   threeScene = new THREE.Scene();
-  threeScene.fog = new THREE.Fog(0x040810, 25, 100);
+  threeScene.fog = new THREE.Fog(0x87ceeb, 80, 280);
 
   threeCamera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 0.1, 400);
   threeCamera.position.set(0, 2.8, 0);
   threeCamera.lookAt(0, -38, -91);
 
-  threeAmbLight = new THREE.AmbientLight(0x5a3a1a, 2.0);
+  threeAmbLight = new THREE.AmbientLight(0xffffff, 3.5);
   threeScene.add(threeAmbLight);
-  threeDirLight = new THREE.DirectionalLight(0xee8833, 1.0);
-  threeDirLight.position.set(3, 12, 2);
+  threeDirLight = new THREE.DirectionalLight(0xfffbe0, 2.5);
+  threeDirLight.position.set(5, 20, 4);
   threeScene.add(threeDirLight);
-  const fillLight = new THREE.DirectionalLight(0x2244aa, 0.35);
-  fillLight.position.set(-2, 4, -8);
+  const fillLight = new THREE.DirectionalLight(0xaaddff, 0.8);
+  fillLight.position.set(-4, 8, -6);
   threeScene.add(fillLight);
 
-  const roadMat = new THREE.MeshLambertMaterial({ color: 0x1e1a14 });
+  const roadMat = new THREE.MeshLambertMaterial({ color: 0xb8b8b8 });
   const roadMesh = new THREE.Mesh(new THREE.PlaneGeometry(ROAD_W, ROAD_LEN), roadMat);
   roadMesh.rotation.x = -Math.PI / 2;
   roadMesh.position.set(0, 0, -ROAD_LEN / 2);
   threeScene.add(roadMesh);
 
   for (const side of [-1, 1]) {
-    const mat = new THREE.MeshLambertMaterial({ color: 0x2a2215 });
+    const mat = new THREE.MeshLambertMaterial({ color: 0xf0f0f0 });
     const mesh = new THREE.Mesh(new THREE.PlaneGeometry(5, ROAD_LEN), mat);
     mesh.rotation.x = -Math.PI / 2;
     mesh.position.set(side * (ROAD_W / 2 + 2.5), -0.01, -ROAD_LEN / 2);
@@ -211,8 +211,12 @@ function initThree() {
     threeScene.add(mesh);
   });
 
-  const bPalette = [0x2a1810, 0x1a1008, 0x3a2515, 0x201510, 0x251a12, 0x1a1520, 0x2e1c10];
-  const winCols  = [0xffcc66, 0xffaa44, 0xffdd88, 0xee9933, 0xddbb55, 0xffeebb];
+  const bPalette = [
+    0xcc3333, 0xdd9922, 0x3366cc, 0x33aa55, 0xcc44aa,
+    0x22aacc, 0x9944cc, 0xddcc22, 0xee6633, 0x44bbcc,
+    0xcc8833, 0x5588dd, 0x55bb44, 0xdd4466, 0x22bbaa,
+  ];
+  const winCols  = [0xffffff, 0xddeeff, 0xffeedd, 0xeeffee, 0xffffcc, 0xddeeff];
   for (const side of [-1, 1]) {
     for (let i = 0; i < BLDG_N; i++) {
       const w = 3 + Math.random() * 5;
@@ -270,24 +274,24 @@ function updateThree(ts) {
     ? 0 : Math.max(0, Math.min(1, 1 - geoDistM / 500));
 
   if (!geoOk && !geoDebug) {
-    const skyC = lerpCol(0x040810, 0x3a1808, prog);
+    const skyC = lerpCol(0x87ceeb, 0xaaddff, prog);
     threeRenderer.setClearColor(skyC);
-    threeScene.fog.color.setHex(lerpCol(0x040810, 0x1e0e05, prog));
-    threeScene.fog.near = 20 + prog * 40;
-    threeScene.fog.far  = 80 + prog * 110;
-    threeAmbLight.color.setHex(lerpCol(0x334466, 0xdd7733, prog));
-    threeAmbLight.intensity = 1.5 + prog * 1.5;
-    threeDirLight.color.setHex(lerpCol(0x334466, 0xee8833, prog));
-    threeDirLight.intensity = 0.5 + prog * 0.8;
+    threeScene.fog.color.setHex(lerpCol(0x87ceeb, 0xaaddff, prog));
+    threeScene.fog.near = 80 + prog * 40;
+    threeScene.fog.far  = 280 + prog * 60;
+    threeAmbLight.color.setHex(0xffffff);
+    threeAmbLight.intensity = 3.5;
+    threeDirLight.color.setHex(0xfffbe0);
+    threeDirLight.intensity = 2.5;
   } else {
-    threeRenderer.setClearColor(0x0a0608);
-    threeScene.fog.color.setHex(0x0a0608);
-    threeScene.fog.near = 60;
-    threeScene.fog.far  = 190;
-    threeAmbLight.color.setHex(0x5a3a1a);
-    threeAmbLight.intensity = 2.0;
-    threeDirLight.color.setHex(0xee8833);
-    threeDirLight.intensity = 1.0;
+    threeRenderer.setClearColor(0x87ceeb);
+    threeScene.fog.color.setHex(0x87ceeb);
+    threeScene.fog.near = 80;
+    threeScene.fog.far  = 280;
+    threeAmbLight.color.setHex(0xffffff);
+    threeAmbLight.intensity = 3.5;
+    threeDirLight.color.setHex(0xfffbe0);
+    threeDirLight.intensity = 2.5;
   }
 
   const Z_NEAR = 3.18;
