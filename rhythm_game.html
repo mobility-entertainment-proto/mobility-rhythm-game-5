@@ -180,12 +180,12 @@ function initThree() {
   threeCamera.position.set(0, 2.8, 0);
   threeCamera.lookAt(0, -38, -91);
 
-  threeAmbLight = new THREE.AmbientLight(0xffffff, 3.5);
+  threeAmbLight = new THREE.AmbientLight(0xffffff, 1.2);
   threeScene.add(threeAmbLight);
-  threeDirLight = new THREE.DirectionalLight(0xfffbe0, 2.5);
+  threeDirLight = new THREE.DirectionalLight(0xfffbe0, 1.8);
   threeDirLight.position.set(5, 20, 4);
   threeScene.add(threeDirLight);
-  const fillLight = new THREE.DirectionalLight(0xaaddff, 0.8);
+  const fillLight = new THREE.DirectionalLight(0xaaddff, 0.5);
   fillLight.position.set(-4, 8, -6);
   threeScene.add(fillLight);
 
@@ -280,18 +280,18 @@ function updateThree(ts) {
     threeScene.fog.near = 80 + prog * 40;
     threeScene.fog.far  = 280 + prog * 60;
     threeAmbLight.color.setHex(0xffffff);
-    threeAmbLight.intensity = 3.5;
+    threeAmbLight.intensity = 1.2;
     threeDirLight.color.setHex(0xfffbe0);
-    threeDirLight.intensity = 2.5;
+    threeDirLight.intensity = 1.8;
   } else {
     threeRenderer.setClearColor(0x87ceeb);
     threeScene.fog.color.setHex(0x87ceeb);
     threeScene.fog.near = 80;
     threeScene.fog.far  = 280;
     threeAmbLight.color.setHex(0xffffff);
-    threeAmbLight.intensity = 3.5;
+    threeAmbLight.intensity = 1.2;
     threeDirLight.color.setHex(0xfffbe0);
-    threeDirLight.intensity = 2.5;
+    threeDirLight.intensity = 1.8;
   }
 
   const Z_NEAR = 3.18;
