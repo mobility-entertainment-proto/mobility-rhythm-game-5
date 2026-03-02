@@ -1,0 +1,1322 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Rhythm Game</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{width:100%;height:100%;overflow:hidden;background:#000;touch-action:none;}
+canvas{display:block;position:fixed;top:0;left:0;width:100%;height:100%;}
+#three{z-index:0;}
+#g{z-index:1;background:transparent;}
+#dbg{position:fixed;bottom:8px;right:8px;background:rgba(10,10,25,0.85);
+  border:1px solid #334;color:#778;font-size:11px;padding:5px 10px;
+  border-radius:5px;cursor:pointer;z-index:10;font-family:monospace;
+  touch-action:manipulation;}
+
+/* ── Settings overlay ──────────────────────────── */
+#settings-overlay{
+  position:fixed;inset:0;z-index:200;
+  background:rgba(4,8,16,0.97);
+  overflow-y:auto;
+  display:flex;align-items:flex-start;justify-content:center;
+  padding:20px 16px 40px;
+  font-family:'Consolas','Courier New',monospace;
+  touch-action:auto;
+}
+#settings-overlay.hidden{display:none;}
+#settings-panel{width:100%;max-width:480px;padding-top:16px;}
+.s-title{
+  font-size:clamp(22px,5vw,32px);color:#fff;
+  text-align:center;margin-bottom:4px;
+  text-shadow:0 0 20px #55aaff;letter-spacing:3px;
+}
+.s-subtitle{
+  font-size:12px;color:#556;
+  text-align:center;margin-bottom:28px;letter-spacing:2px;text-transform:uppercase;
+}
+.s-section{
+  background:#0d0d20;border:1px solid #2a2a4a;
+  border-radius:12px;padding:18px 20px;margin-bottom:16px;
+}
+.s-section-title{
+  font-size:10px;color:#445;letter-spacing:2px;
+  margin-bottom:14px;text-transform:uppercase;
+}
+.s-field{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:10px;gap:10px;
+}
+.s-field:last-child{margin-bottom:0;}
+.s-label{font-size:13px;color:#99a;flex-shrink:0;}
+.s-input{
+  background:#141430;border:1px solid #334;border-radius:6px;
+  color:#eee;font-family:monospace;font-size:14px;
+  padding:7px 10px;width:160px;text-align:right;outline:none;
+  touch-action:auto;
+}
+.s-input:focus{border-color:#55aaff;}
+.diff-row{display:flex;gap:10px;justify-content:center;}
+.diff-btn{
+  flex:1;padding:13px 0;border-radius:8px;border:2px solid #2a2a4a;
+  background:#0d0d20;color:#445;font-family:monospace;font-size:13px;
+  font-weight:bold;cursor:pointer;letter-spacing:1px;transition:all .15s;
+  touch-action:manipulation;
+}
+.diff-btn.active-EASY  {border-color:#66bb6a;color:#66bb6a;background:#081408;}
+.diff-btn.active-NORMAL{border-color:#26c6da;color:#26c6da;background:#08181e;}
+.diff-btn.active-HARD  {border-color:#ff7043;color:#ff7043;background:#1e0808;}
+.s-diff-desc{font-size:10px;color:#445;margin-top:12px;line-height:1.7;text-align:center;}
+.s-slider-row{display:flex;align-items:center;gap:10px;}
+.s-slider-label{font-size:11px;color:#445;white-space:nowrap;}
+.s-slider{flex:1;accent-color:#55aaff;height:6px;cursor:pointer;touch-action:none;}
+.s-slider-val{
+  min-width:60px;text-align:center;font-size:15px;font-weight:bold;
+  color:#eee;margin-top:10px;
+}
+.s-start-btn{
+  width:100%;padding:18px;border-radius:12px;
+  background:#0e1a30;border:2px solid #55aaff;
+  color:#66ccff;font-family:monospace;font-size:clamp(15px,3.5vw,19px);
+  font-weight:bold;cursor:pointer;letter-spacing:2px;
+  margin-top:8px;transition:all .2s;touch-action:manipulation;
+}
+.s-start-btn:active{background:#1a2a40;box-shadow:0 0 24px rgba(85,170,255,.4);}
+</style>
+</head>
+<body>
+<canvas id="three"></canvas>
+<canvas id="g"></canvas>
+<button id="dbg" onclick="toggleGeoDebug()">🔒 GEO: ON</button>
+
+<!-- ── Settings Overlay ─────────────────────────── -->
+<div id="settings-overlay">
+  <div id="settings-panel">
+    <h2 class="s-title">RHYTHM GAME</h2>
+    <p class="s-subtitle">設定</p>
+
+    <!-- Geofence -->
+    <div class="s-section">
+      <div class="s-section-title">ジオフェンス設定</div>
+      <div class="s-field">
+        <span class="s-label">緯度 (latitude)</span>
+        <input class="s-input" type="number" id="s-lat" step="0.000001" placeholder="0.000000">
+      </div>
+      <div class="s-field">
+        <span class="s-label">経度 (longitude)</span>
+        <input class="s-input" type="number" id="s-lng" step="0.000001" placeholder="0.000000">
+      </div>
+      <div class="s-field">
+        <span class="s-label">半径 (radius)</span>
+        <div style="display:flex;align-items:center;gap:6px">
+          <input class="s-input" type="number" id="s-radius" min="1" step="1" placeholder="100" style="width:110px">
+          <span style="font-size:12px;color:#556">m</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Difficulty -->
+    <div class="s-section">
+      <div class="s-section-title">難易度</div>
+      <div class="diff-row">
+        <button class="diff-btn" id="d-EASY"   onclick="selectDiff('EASY')">EASY</button>
+        <button class="diff-btn" id="d-NORMAL" onclick="selectDiff('NORMAL')">NORMAL</button>
+        <button class="diff-btn" id="d-HARD"   onclick="selectDiff('HARD')">HARD</button>
+      </div>
+      <div class="s-diff-desc" id="diff-desc"></div>
+    </div>
+
+    <!-- Offset -->
+    <div class="s-section">
+      <div class="s-section-title">オフセット調整</div>
+      <div class="s-slider-row">
+        <span class="s-slider-label">-200ms</span>
+        <input class="s-slider" type="range" id="s-offset" min="-200" max="200" step="1"
+               oninput="updateOffsetDisplay()" ontouchmove="updateOffsetDisplay()">
+        <span class="s-slider-label">+200ms</span>
+      </div>
+      <div style="text-align:center">
+        <span class="s-slider-val" id="s-offset-val">0ms</span>
+      </div>
+      <div class="s-diff-desc">音がズレて聞こえる場合に調整 · 早押し傾向→+ / 遅押し傾向→−</div>
+    </div>
+
+    <button class="s-start-btn" id="s-start-btn" onclick="saveSettingsAndStart()">ゲームを始める ▶</button>
+  </div>
+</div>
+
+<script>
+// ── Chart ─────────────────────────────────────────
+const CHART = {"song_id":"rockot_drive_breakbeat_173062","bpm":95.7,"offset_ms":1324,"notes":[{"time_ms":1881,"lane":3},{"time_ms":2508,"lane":2},{"time_ms":3135,"lane":0},{"time_ms":3135,"lane":1},{"time_ms":3762,"lane":1},{"time_ms":3762,"lane":3},{"time_ms":4389,"lane":2},{"time_ms":5016,"lane":1},{"time_ms":5016,"lane":2},{"time_ms":5643,"lane":0},{"time_ms":5643,"lane":1},{"time_ms":6270,"lane":1},{"time_ms":6270,"lane":3},{"time_ms":6897,"lane":2},{"time_ms":7524,"lane":1},{"time_ms":8150,"lane":1},{"time_ms":8150,"lane":2},{"time_ms":8777,"lane":1},{"time_ms":8777,"lane":2},{"time_ms":9404,"lane":1},{"time_ms":9404,"lane":2},{"time_ms":10031,"lane":1},{"time_ms":10658,"lane":1},{"time_ms":11285,"lane":1},{"time_ms":11285,"lane":2},{"time_ms":11912,"lane":1},{"time_ms":12539,"lane":1},{"time_ms":13166,"lane":1},{"time_ms":13793,"lane":1},{"time_ms":14420,"lane":1},{"time_ms":14420,"lane":2},{"time_ms":15047,"lane":1},{"time_ms":15047,"lane":2},{"time_ms":15674,"lane":0},{"time_ms":15674,"lane":1},{"time_ms":16301,"lane":1},{"time_ms":16301,"lane":2},{"time_ms":16928,"lane":2},{"time_ms":17555,"lane":1},{"time_ms":18182,"lane":2},{"time_ms":18182,"lane":3},{"time_ms":18809,"lane":1},{"time_ms":18809,"lane":2},{"time_ms":19436,"lane":2},{"time_ms":20063,"lane":2},{"time_ms":20063,"lane":3},{"time_ms":21317,"lane":0},{"time_ms":21317,"lane":1},{"time_ms":21944,"lane":1},{"time_ms":21944,"lane":2},{"time_ms":22571,"lane":0},{"time_ms":22571,"lane":1},{"time_ms":23197,"lane":1},{"time_ms":23197,"lane":2},{"time_ms":23824,"lane":0},{"time_ms":23824,"lane":1},{"time_ms":24451,"lane":1},{"time_ms":24451,"lane":3},{"time_ms":25078,"lane":0},{"time_ms":25078,"lane":1},{"time_ms":25705,"lane":1},{"time_ms":25705,"lane":2},{"time_ms":26332,"lane":1},{"time_ms":26332,"lane":2},{"time_ms":26959,"lane":0},{"time_ms":26959,"lane":1},{"time_ms":27586,"lane":0},{"time_ms":27586,"lane":1},{"time_ms":28213,"lane":1},{"time_ms":28840,"lane":0},{"time_ms":28840,"lane":1},{"time_ms":29467,"lane":0},{"time_ms":29467,"lane":1},{"time_ms":30094,"lane":0},{"time_ms":30094,"lane":1},{"time_ms":30721,"lane":1},{"time_ms":31348,"lane":1},{"time_ms":31348,"lane":2},{"time_ms":31975,"lane":1},{"time_ms":31975,"lane":2},{"time_ms":32602,"lane":1},{"time_ms":32602,"lane":2},{"time_ms":33229,"lane":1},{"time_ms":33229,"lane":2},{"time_ms":33856,"lane":1},{"time_ms":34483,"lane":1},{"time_ms":34483,"lane":2},{"time_ms":35110,"lane":1},{"time_ms":35110,"lane":2},{"time_ms":35737,"lane":1},{"time_ms":35737,"lane":2},{"time_ms":36364,"lane":1},{"time_ms":36364,"lane":2},{"time_ms":36991,"lane":1},{"time_ms":37618,"lane":0},{"time_ms":37618,"lane":1},{"time_ms":38245,"lane":1},{"time_ms":38871,"lane":1},{"time_ms":39498,"lane":0},{"time_ms":39498,"lane":1},{"time_ms":40125,"lane":1},{"time_ms":40752,"lane":1},{"time_ms":40752,"lane":2},{"time_ms":41379,"lane":1},{"time_ms":42006,"lane":1},{"time_ms":42006,"lane":2},{"time_ms":43260,"lane":2},{"time_ms":43260,"lane":3},{"time_ms":44514,"lane":2},{"time_ms":44514,"lane":3},{"time_ms":45768,"lane":1},{"time_ms":45768,"lane":2},{"time_ms":46395,"lane":0},{"time_ms":46395,"lane":1},{"time_ms":47022,"lane":1},{"time_ms":47022,"lane":3},{"time_ms":47649,"lane":1},{"time_ms":48276,"lane":1},{"time_ms":48276,"lane":2},{"time_ms":48903,"lane":1},{"time_ms":48903,"lane":2},{"time_ms":49530,"lane":1},{"time_ms":49530,"lane":3},{"time_ms":50157,"lane":1},{"time_ms":50784,"lane":1},{"time_ms":50784,"lane":3},{"time_ms":51411,"lane":0},{"time_ms":51411,"lane":1},{"time_ms":52038,"lane":0},{"time_ms":52038,"lane":1},{"time_ms":52665,"lane":1},{"time_ms":53292,"lane":1},{"time_ms":53292,"lane":2},{"time_ms":53918,"lane":0},{"time_ms":53918,"lane":1},{"time_ms":54545,"lane":1},{"time_ms":54545,"lane":3},{"time_ms":55172,"lane":1},{"time_ms":55799,"lane":1},{"time_ms":55799,"lane":2},{"time_ms":56426,"lane":0},{"time_ms":56426,"lane":2},{"time_ms":57053,"lane":1},{"time_ms":57053,"lane":3},{"time_ms":58307,"lane":1},{"time_ms":58307,"lane":2},{"time_ms":58934,"lane":1},{"time_ms":58934,"lane":2},{"time_ms":59561,"lane":1},{"time_ms":59561,"lane":2},{"time_ms":60188,"lane":1},{"time_ms":60188,"lane":2},{"time_ms":60815,"lane":1},{"time_ms":60815,"lane":2},{"time_ms":61442,"lane":1},{"time_ms":61442,"lane":2},{"time_ms":62069,"lane":1},{"time_ms":62069,"lane":2},{"time_ms":62696,"lane":1},{"time_ms":63323,"lane":1},{"time_ms":63323,"lane":2},{"time_ms":63950,"lane":1},{"time_ms":64577,"lane":1},{"time_ms":65204,"lane":1},{"time_ms":65831,"lane":1},{"time_ms":65831,"lane":2},{"time_ms":66458,"lane":1},{"time_ms":67085,"lane":1},{"time_ms":67085,"lane":2},{"time_ms":67712,"lane":0},{"time_ms":67712,"lane":1},{"time_ms":68339,"lane":1},{"time_ms":68966,"lane":2},{"time_ms":68966,"lane":3},{"time_ms":69592,"lane":0},{"time_ms":69592,"lane":1},{"time_ms":70219,"lane":1},{"time_ms":70846,"lane":1},{"time_ms":70846,"lane":2},{"time_ms":71473,"lane":0},{"time_ms":71473,"lane":1},{"time_ms":72100,"lane":1},{"time_ms":72100,"lane":2},{"time_ms":72727,"lane":1},{"time_ms":73354,"lane":0},{"time_ms":73354,"lane":1},{"time_ms":73981,"lane":1},{"time_ms":74608,"lane":0},{"time_ms":74608,"lane":2},{"time_ms":75235,"lane":1},{"time_ms":75862,"lane":1},{"time_ms":75862,"lane":3},{"time_ms":76489,"lane":2},{"time_ms":76489,"lane":3},{"time_ms":77116,"lane":0},{"time_ms":79624,"lane":1},{"time_ms":79624,"lane":2},{"time_ms":80251,"lane":1},{"time_ms":80878,"lane":1},{"time_ms":80878,"lane":2},{"time_ms":81505,"lane":1},{"time_ms":81505,"lane":2},{"time_ms":82132,"lane":1},{"time_ms":82132,"lane":3},{"time_ms":82759,"lane":1},{"time_ms":82759,"lane":2},{"time_ms":83386,"lane":1},{"time_ms":84013,"lane":1},{"time_ms":84013,"lane":2},{"time_ms":84639,"lane":1},{"time_ms":85266,"lane":1},{"time_ms":85893,"lane":1},{"time_ms":85893,"lane":2},{"time_ms":86520,"lane":1},{"time_ms":86520,"lane":2},{"time_ms":87147,"lane":1},{"time_ms":87147,"lane":2},{"time_ms":87774,"lane":0},{"time_ms":87774,"lane":2},{"time_ms":88401,"lane":1},{"time_ms":88401,"lane":2},{"time_ms":89028,"lane":1},{"time_ms":89655,"lane":0},{"time_ms":89655,"lane":2},{"time_ms":90909,"lane":2},{"time_ms":91536,"lane":1},{"time_ms":92163,"lane":0},{"time_ms":92163,"lane":1},{"time_ms":92790,"lane":1},{"time_ms":93417,"lane":1},{"time_ms":94044,"lane":1},{"time_ms":94044,"lane":2},{"time_ms":94671,"lane":0},{"time_ms":94671,"lane":1},{"time_ms":95298,"lane":1},{"time_ms":95925,"lane":1},{"time_ms":96552,"lane":1},{"time_ms":96552,"lane":2},{"time_ms":97179,"lane":0},{"time_ms":97179,"lane":1},{"time_ms":97806,"lane":1},{"time_ms":97806,"lane":2},{"time_ms":98433,"lane":1},{"time_ms":99060,"lane":0},{"time_ms":99060,"lane":1},{"time_ms":99687,"lane":1},{"time_ms":100313,"lane":1},{"time_ms":100313,"lane":2},{"time_ms":100940,"lane":1},{"time_ms":100940,"lane":2},{"time_ms":101567,"lane":0},{"time_ms":101567,"lane":1},{"time_ms":102194,"lane":1},{"time_ms":102194,"lane":2},{"time_ms":102821,"lane":1},{"time_ms":102821,"lane":2},{"time_ms":103448,"lane":1},{"time_ms":103448,"lane":2},{"time_ms":104075,"lane":1},{"time_ms":104075,"lane":2},{"time_ms":104702,"lane":0},{"time_ms":104702,"lane":2}]};
+
+// ── Three.js 3D Road Scene ────────────────────────
+const ROAD_W   = 8;
+const ROAD_LEN = 200;
+const BLDG_N   = 14;
+
+let threeRenderer, threeScene, threeCamera;
+let threeAmbLight, threeDirLight;
+let threeBuildings = [];
+let threeLastT = 0;
+
+function initThree() {
+  threeRenderer = new THREE.WebGLRenderer({
+    canvas: document.getElementById('three'),
+    antialias: false,
+    powerPreference: 'low-power'
+  });
+  threeRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+  threeRenderer.setClearColor(0x040810);
+  threeRenderer.setSize(window.innerWidth, window.innerHeight);
+
+  threeScene = new THREE.Scene();
+  threeScene.fog = new THREE.Fog(0x040810, 25, 100);
+
+  threeCamera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 0.1, 400);
+  threeCamera.position.set(0, 2.8, 0);
+  threeCamera.lookAt(0, -38, -91);
+
+  threeAmbLight = new THREE.AmbientLight(0x5a3a1a, 2.0);
+  threeScene.add(threeAmbLight);
+  threeDirLight = new THREE.DirectionalLight(0xee8833, 1.0);
+  threeDirLight.position.set(3, 12, 2);
+  threeScene.add(threeDirLight);
+  const fillLight = new THREE.DirectionalLight(0x2244aa, 0.35);
+  fillLight.position.set(-2, 4, -8);
+  threeScene.add(fillLight);
+
+  const roadMat = new THREE.MeshLambertMaterial({ color: 0x1e1a14 });
+  const roadMesh = new THREE.Mesh(new THREE.PlaneGeometry(ROAD_W, ROAD_LEN), roadMat);
+  roadMesh.rotation.x = -Math.PI / 2;
+  roadMesh.position.set(0, 0, -ROAD_LEN / 2);
+  threeScene.add(roadMesh);
+
+  for (const side of [-1, 1]) {
+    const mat = new THREE.MeshLambertMaterial({ color: 0x2a2215 });
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(5, ROAD_LEN), mat);
+    mesh.rotation.x = -Math.PI / 2;
+    mesh.position.set(side * (ROAD_W / 2 + 2.5), -0.01, -ROAD_LEN / 2);
+    threeScene.add(mesh);
+  }
+
+  [[-4,'solid'],[-2,'dash'],[0,'dash'],[2,'dash'],[4,'solid']].forEach(([x, type]) => {
+    const mat = new THREE.MeshBasicMaterial({ color: 0xffffff, opacity: type==='solid'?0.95:0.7, transparent:true });
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(type==='solid'?0.12:0.08, ROAD_LEN), mat);
+    mesh.rotation.x = -Math.PI / 2;
+    mesh.position.set(x, 0.01, -ROAD_LEN / 2);
+    threeScene.add(mesh);
+  });
+
+  const bPalette = [0x2a1810, 0x1a1008, 0x3a2515, 0x201510, 0x251a12, 0x1a1520, 0x2e1c10];
+  const winCols  = [0xffcc66, 0xffaa44, 0xffdd88, 0xee9933, 0xddbb55, 0xffeebb];
+  for (const side of [-1, 1]) {
+    for (let i = 0; i < BLDG_N; i++) {
+      const w = 3 + Math.random() * 5;
+      const h = 6 + Math.random() * 22;
+      const d = 4 + Math.random() * 5;
+      const col = bPalette[Math.floor(Math.random() * bPalette.length)];
+      const mat = new THREE.MeshLambertMaterial({ color: col });
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+      const xOff = ROAD_W / 2 + 1.5 + Math.random() * 7;
+      const zPos = -(i / BLDG_N) * ROAD_LEN;
+      mesh.position.set(side * xOff, h / 2, zPos);
+      threeScene.add(mesh);
+      threeBuildings.push(mesh);
+
+      const floors = Math.floor(h / 3);
+      for (let f = 0; f < floors; f++) {
+        if (Math.random() < 0.55) {
+          const wc = winCols[Math.floor(Math.random() * winCols.length)];
+          const wMat = new THREE.MeshBasicMaterial({ color: wc, transparent: true, opacity: 0.55 + Math.random() * 0.4 });
+          const ww = w * (0.18 + Math.random() * 0.28);
+          const wh = 0.55 + Math.random() * 0.5;
+          const wMesh = new THREE.Mesh(new THREE.PlaneGeometry(ww, wh), wMat);
+          wMesh.position.set(
+            side * (-w / 2 - 0.05),
+            (f + 0.5) * 3 - h / 2,
+            (Math.random() - 0.5) * d * 0.75
+          );
+          wMesh.rotation.y = -side * Math.PI / 2;
+          mesh.add(wMesh);
+        }
+      }
+    }
+  }
+
+  window.addEventListener('resize', () => {
+    threeRenderer.setSize(window.innerWidth, window.innerHeight);
+    threeCamera.aspect = window.innerWidth / window.innerHeight;
+    threeCamera.updateProjectionMatrix();
+  });
+}
+
+function lerpCol(c1, c2, t) {
+  t = Math.max(0, Math.min(1, t));
+  const r1=(c1>>16)&255, g1=(c1>>8)&255, b1=c1&255;
+  const r2=(c2>>16)&255, g2=(c2>>8)&255, b2=c2&255;
+  return ((r1+(r2-r1)*t)<<16|(g1+(g2-g1)*t)<<8|(b1+(b2-b1)*t))|0;
+}
+
+function updateThree(ts) {
+  if (!threeRenderer) return;
+  const dt = Math.min((ts - threeLastT) / 1000, 0.05);
+  threeLastT = ts;
+
+  const prog = (geoDistM === Infinity || geoDistM > 500)
+    ? 0 : Math.max(0, Math.min(1, 1 - geoDistM / 500));
+
+  if (!geoOk && !geoDebug) {
+    const skyC = lerpCol(0x040810, 0x3a1808, prog);
+    threeRenderer.setClearColor(skyC);
+    threeScene.fog.color.setHex(lerpCol(0x040810, 0x1e0e05, prog));
+    threeScene.fog.near = 20 + prog * 40;
+    threeScene.fog.far  = 80 + prog * 110;
+    threeAmbLight.color.setHex(lerpCol(0x334466, 0xdd7733, prog));
+    threeAmbLight.intensity = 1.5 + prog * 1.5;
+    threeDirLight.color.setHex(lerpCol(0x334466, 0xee8833, prog));
+    threeDirLight.intensity = 0.5 + prog * 0.8;
+  } else {
+    threeRenderer.setClearColor(0x0a0608);
+    threeScene.fog.color.setHex(0x0a0608);
+    threeScene.fog.near = 60;
+    threeScene.fog.far  = 190;
+    threeAmbLight.color.setHex(0x5a3a1a);
+    threeAmbLight.intensity = 2.0;
+    threeDirLight.color.setHex(0xee8833);
+    threeDirLight.intensity = 1.0;
+  }
+
+  const Z_NEAR = 3.18;
+  const scrollSpeed = gs === GS.PLAYING ? (ROAD_LEN - Z_NEAR) / (APPROACH_MS / 1000) : 0;
+  const move = scrollSpeed * dt;
+
+  for (const mesh of threeBuildings) {
+    mesh.position.z += move;
+    if (mesh.position.z > 5) mesh.position.z -= (ROAD_LEN - Z_NEAR);
+  }
+
+  threeRenderer.render(threeScene, threeCamera);
+}
+
+// ── Geofence 設定（localStorage から読み込み。デフォルト 0.0/0.0/100）────
+let geoLat    = +(localStorage.getItem('rg_geo_lat')    ?? 0.0);
+let geoLng    = +(localStorage.getItem('rg_geo_lng')    ?? 0.0);
+let geoRadius = +(localStorage.getItem('rg_geo_radius') ?? 100);
+
+// ── Geofence 状態 ─────────────────────────────────
+let geoOk    = false;
+let geoDebug = false;
+let geoMsg   = '位置情報を取得中...';
+let geoDistM = Infinity;
+let geoPhase = 0;
+
+// ── Audio解禁フラグ ───────────────────────────────
+let audioReady = false;
+
+// ── エントリーアニメ ─────────────────────────────
+let entryAnim    = false;
+let entryAnimT   = 0;
+let entryTimerId = null;
+
+// ── アンビエント音 ────────────────────────────────
+let ambCtx = null, ambDrone = null, ambGain = null;
+
+function initAmbient() {
+  if (ambCtx) return;
+  try {
+    ambCtx = new (window.AudioContext || window.webkitAudioContext)();
+    ambGain = ambCtx.createGain();
+    ambGain.gain.value = 0;
+    ambGain.connect(ambCtx.destination);
+
+    ambDrone = ambCtx.createOscillator();
+    ambDrone.type = 'sine';
+    ambDrone.frequency.value = 55;
+    ambDrone.connect(ambGain);
+    ambDrone.start();
+
+    const osc2 = ambCtx.createOscillator();
+    osc2.type = 'sawtooth';
+    osc2.frequency.value = 110.4;
+    const g2 = ambCtx.createGain(); g2.gain.value = 0.18;
+    osc2.connect(g2); g2.connect(ambGain); osc2.start();
+  } catch(e) {}
+}
+
+function updateAmbient(distM) {
+  if (!ambCtx || !ambGain || !ambDrone) return;
+  const t = ambCtx.currentTime;
+  if (distM > 500) {
+    ambGain.gain.setTargetAtTime(0, t, 1.5);
+  } else if (distM > 100) {
+    const p = (500 - distM) / 400;
+    ambGain.gain.setTargetAtTime(0.03 + p * 0.08, t, 0.8);
+    ambDrone.frequency.setTargetAtTime(55 + p * 20, t, 0.8);
+  } else {
+    const p = (100 - distM) / 100;
+    ambGain.gain.setTargetAtTime(0.11 + p * 0.18, t, 0.4);
+    ambDrone.frequency.setTargetAtTime(75 + p * 35, t, 0.4);
+  }
+}
+
+function stopAmbient() {
+  if (!ambCtx || !ambGain) return;
+  ambGain.gain.setTargetAtTime(0, ambCtx.currentTime, 0.4);
+}
+
+function haversine(lat1, lng1, lat2, lng2) {
+  const R = 6371000;
+  const f1 = lat1*Math.PI/180, f2 = lat2*Math.PI/180;
+  const df = (lat2-lat1)*Math.PI/180, dl = (lng2-lng1)*Math.PI/180;
+  const a  = Math.sin(df/2)**2 + Math.cos(f1)*Math.cos(f2)*Math.sin(dl/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+function initGeo() {
+  if (!navigator.geolocation) { geoMsg = 'Geolocation非対応のブラウザです'; return; }
+  navigator.geolocation.watchPosition(
+    pos => {
+      const d = haversine(pos.coords.latitude, pos.coords.longitude, geoLat, geoLng);
+      geoDistM = Math.max(0, d - geoRadius);
+      geoPhase = geoDistM > 500 ? 0 : geoDistM > 100 ? 1 : 2;
+      geoMsg = `エリアまで ${geoDistM < 1 ? '0' : geoDistM.toFixed(0)}m`;
+      const inside = d <= geoRadius;
+      if (inside && !geoOk) {
+        geoOk = true;
+        stopAmbient();
+        entryAnim = true;
+        entryAnimT = performance.now();
+        if (entryTimerId) clearTimeout(entryTimerId);
+        entryTimerId = setTimeout(() => {
+          entryTimerId = null;
+          entryAnim = false;
+          if (geoOk) startGame();
+        }, 2300);
+      } else if (!inside && geoOk) {
+        geoOk = false;
+        if (gs === GS.PLAYING) { audio.pause(); gs = GS.TITLE; }
+      }
+      updateAmbient(geoDistM);
+    },
+    err => { geoMsg = `位置情報エラー: ${err.message}`; },
+    { enableHighAccuracy: true, maximumAge: 3000, timeout: 10000 }
+  );
+}
+
+function toggleGeoDebug() {
+  initAmbient();
+  geoDebug = !geoDebug;
+  if (geoDebug) {
+    if (entryTimerId) { clearTimeout(entryTimerId); entryTimerId = null; }
+    entryAnim = true;
+    entryAnimT = performance.now();
+    entryTimerId = setTimeout(() => {
+      entryTimerId = null;
+      entryAnim = false;
+      startGame();
+    }, 2300);
+  } else {
+    if (entryTimerId) { clearTimeout(entryTimerId); entryTimerId = null; }
+    entryAnim = false;
+    if (gs === GS.PLAYING || gs === GS.PAUSED) { audio.pause(); gs = GS.TITLE; }
+  }
+  const btn = document.getElementById('dbg');
+  btn.textContent       = geoDebug ? '🔓 GEO: OFF (debug)' : '🔒 GEO: ON';
+  btn.style.color       = geoDebug ? '#6f6' : '#778';
+  btn.style.borderColor = geoDebug ? '#6f6' : '#334';
+}
+
+// ── Settings overlay ───────────────────────────────
+let settingsOpen = true;  // 起動時は設定画面を表示
+
+const DIFF_DESCS = {
+  EASY:   'PERFECT ±150ms  /  GREAT ±300ms  /  GOOD ±450ms',
+  NORMAL: 'PERFECT ±100ms  /  GREAT ±200ms  /  GOOD ±300ms',
+  HARD:   'PERFECT ±50ms   /  GREAT ±100ms  /  GOOD ±160ms',
+};
+
+function selectDiff(k) {
+  diffKey = k;
+  ['EASY','NORMAL','HARD'].forEach(d => {
+    const btn = document.getElementById('d-' + d);
+    btn.className = 'diff-btn' + (d === k ? ' active-' + d : '');
+  });
+  document.getElementById('diff-desc').textContent = DIFF_DESCS[k];
+}
+
+function updateOffsetDisplay() {
+  const v = +document.getElementById('s-offset').value;
+  const el = document.getElementById('s-offset-val');
+  el.textContent = (v >= 0 ? '+' : '') + v + 'ms';
+  el.style.color = v === 0 ? '#aaa' : v > 0 ? '#ffaa44' : '#4488ff';
+}
+
+function initSettingsUI() {
+  // ジオフェンス値を復元
+  document.getElementById('s-lat').value    = geoLat;
+  document.getElementById('s-lng').value    = geoLng;
+  document.getElementById('s-radius').value = geoRadius;
+  // 難易度
+  selectDiff(diffKey);
+  // オフセット
+  document.getElementById('s-offset').value = offsetAdj;
+  updateOffsetDisplay();
+  // ボタンテキスト
+  updateSettingsBtn();
+}
+
+function updateSettingsBtn() {
+  const btn = document.getElementById('s-start-btn');
+  btn.textContent = audioReady ? '設定を保存して閉じる ✕' : 'ゲームを始める ▶';
+}
+
+function saveSettingsAndStart() {
+  // ジオフェンス保存
+  const lat    = parseFloat(document.getElementById('s-lat').value)    || 0;
+  const lng    = parseFloat(document.getElementById('s-lng').value)    || 0;
+  const radius = parseFloat(document.getElementById('s-radius').value) || 100;
+  geoLat = lat; geoLng = lng; geoRadius = Math.max(1, radius);
+  localStorage.setItem('rg_geo_lat',    geoLat);
+  localStorage.setItem('rg_geo_lng',    geoLng);
+  localStorage.setItem('rg_geo_radius', geoRadius);
+
+  // 難易度保存
+  applyDiff(diffKey);
+
+  // オフセット保存
+  offsetAdj = +document.getElementById('s-offset').value;
+  localStorage.setItem('rg_offset', offsetAdj);
+
+  // オーバーレイを閉じる
+  settingsOpen = false;
+  document.getElementById('settings-overlay').classList.add('hidden');
+
+  // 一時停止中だった場合は再開
+  if (gs === GS.PAUSED) {
+    gs = GS.PLAYING;
+    audio.play().then(() => syncOff());
+  }
+}
+
+function openSettings() {
+  // ゲーム中なら一時停止
+  if (gs === GS.PLAYING) {
+    audio.pause();
+    gs = GS.PAUSED;
+  }
+  settingsOpen = true;
+  initSettingsUI();
+  document.getElementById('settings-overlay').classList.remove('hidden');
+}
+
+// ── Render: approach screen ────────────────────────
+function drawGeoWait(ts) {
+  const t = ts / 1000;
+  const distM = geoDistM;
+
+  if (geoPhase === 0) {
+    ctx.fillStyle = 'rgba(4,8,16,0.20)';
+    ctx.fillRect(0, 0, W, H);
+    ctx.textAlign = 'center';
+    ctx.font = `${H*.022|0}px monospace`;
+    ctx.fillStyle = 'rgba(160,120,70,0.65)';
+    ctx.fillText(distM === Infinity ? '位置情報を取得中...' : `エリアまで ${distM.toFixed(0)}m`, cx, H*.92);
+    if (!ambCtx) {
+      ctx.font = `${H*.016|0}px monospace`;
+      ctx.fillStyle = 'rgba(140,110,60,0.4)';
+      ctx.fillText('tap screen to enable sound', cx, H*.87);
+    }
+
+  } else if (geoPhase === 1) {
+    const p = Math.max(0, Math.min(1, (500 - distM) / 400));
+    const pulse = 0.85 + 0.15 * Math.sin(t * 2.2);
+
+    const vg = ctx.createRadialGradient(cx, H*.6, H*.15, cx, H*.5, H*.75);
+    vg.addColorStop(0, 'rgba(0,0,0,0)');
+    vg.addColorStop(1, `rgba(80,30,0,${0.18 + p * 0.28})`);
+    ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
+
+    const barW = W * 0.7;
+    const barX = cx - barW / 2;
+    ctx.fillStyle = 'rgba(255,255,255,0.08)';
+    ctx.fillRect(barX, H*.07, barW, 7);
+    ctx.fillStyle = `rgba(255,${140 - p*60|0},30,0.85)`;
+    ctx.fillRect(barX, H*.07, barW * (1 - distM/500), 7);
+    ctx.fillStyle = 'rgba(200,150,80,0.55)';
+    ctx.font = `${H*.018|0}px monospace`; ctx.textAlign='center';
+    ctx.fillText('ゲームエリアまで', cx, H*.065);
+
+    ctx.textAlign = 'center';
+    ctx.font = `bold ${H*0.09*pulse|0}px monospace`;
+    ctx.fillStyle = `rgba(255,${180-p*60|0},50,${0.75 + p*.25})`;
+    ctx.shadowColor = 'rgba(255,120,30,0.7)';
+    ctx.shadowBlur = 18 + p * 18;
+    ctx.fillText(`あと ${distM.toFixed(0)}m`, cx, H*.48);
+    ctx.shadowBlur = 0;
+
+    ctx.font = `${H*.026|0}px monospace`;
+    ctx.fillStyle = `rgba(220,160,80,${0.55 + p*.35})`;
+    ctx.fillText('エリアに近づいています', cx, H*.58);
+
+  } else {
+    const p = Math.max(0, Math.min(1, (100 - distM) / 100));
+    const pulse = 0.5 + 0.5 * Math.sin(t * 6);
+
+    const vg = ctx.createRadialGradient(cx, H*.5, H*.08, cx, H*.5, H*.75);
+    vg.addColorStop(0, 'rgba(0,0,0,0)');
+    vg.addColorStop(1, `rgba(150,40,0,${0.22 + p*.3 + pulse*.14})`);
+    ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
+
+    ctx.strokeStyle = `rgba(255,100,20,${0.28 + pulse*.5})`;
+    ctx.lineWidth = 7 + pulse * 6;
+    ctx.strokeRect(4, 4, W - 8, H - 8);
+
+    ctx.textAlign = 'center';
+    ctx.font = `bold ${H*(0.11 + pulse*.008)|0}px monospace`;
+    ctx.fillStyle = `rgba(255,${80+pulse*80|0},20,1)`;
+    ctx.shadowColor = 'rgba(255,80,0,0.9)';
+    ctx.shadowBlur = 30 + pulse * 22;
+    ctx.fillText(`あと ${Math.max(0, distM).toFixed(0)}m`, cx, H*.45);
+    ctx.shadowBlur = 0;
+
+    ctx.font = `bold ${H*(0.042 + pulse*.005)|0}px monospace`;
+    ctx.fillStyle = `rgba(255,200,80,${0.7 + pulse*.3})`;
+    ctx.shadowColor = 'rgba(255,150,30,0.8)';
+    ctx.shadowBlur = 14;
+    ctx.fillText('まもなく！', cx, H*.60);
+    ctx.shadowBlur = 0;
+
+    ctx.fillStyle = `rgba(255,${80+pulse*80|0},20,0.85)`;
+    ctx.fillRect(0, H - 10, W * (1 - distM/100), 10);
+  }
+
+  ctx.textAlign = 'center';
+  ctx.font = `${H*.016|0}px monospace`;
+  ctx.fillStyle = 'rgba(160,130,80,0.45)';
+  ctx.fillText(geoMsg, cx, H*.97);
+}
+
+// ── Render: audio unlock screen ───────────────────
+function drawAudioUnlock(ts) {
+  const t = ts / 1000;
+  const pulse = 0.65 + 0.35 * Math.sin(t * 1.7);
+  ctx.fillStyle = 'rgba(4,8,16,0.70)';
+  ctx.fillRect(0, 0, W, H);
+  ctx.textAlign = 'center';
+  ctx.font = `bold ${H*.052|0}px monospace`;
+  ctx.fillStyle = '#fff'; ctx.shadowColor = '#ffaa00'; ctx.shadowBlur = 14;
+  ctx.fillText('RHYTHM GAME', cx, H*.28);
+  ctx.shadowBlur = 0;
+  ctx.font = `bold ${H*.078*pulse|0}px monospace`;
+  ctx.fillStyle = `rgba(255,230,80,${0.7+pulse*.3})`;
+  ctx.shadowColor = '#ffaa00'; ctx.shadowBlur = 22+pulse*10;
+  ctx.fillText('TAP TO START', cx, H*.48);
+  ctx.shadowBlur = 0;
+  ctx.font = `${H*.022|0}px monospace`;
+  ctx.fillStyle = 'rgba(180,150,90,0.72)';
+  ctx.fillText('画面をタップして音声を有効化してください', cx, H*.60);
+  ctx.font = `${H*.018|0}px monospace`;
+  ctx.fillStyle = 'rgba(140,110,70,0.55)';
+  ctx.fillText('一度タップすれば以降は自動でスタートします', cx, H*.66);
+}
+
+// ── Render: entry animation ────────────────────────
+function drawEntryAnim(ts) {
+  const elapsed = (ts - entryAnimT) / 1000;
+
+  const flashA = Math.max(0, 0.85 - elapsed * 1.4);
+  ctx.fillStyle = `rgba(255,210,80,${flashA})`;
+  ctx.fillRect(0, 0, W, H);
+
+  const scaleIn = Math.min(1, elapsed * 4);
+  const scale   = 0.15 + scaleIn * 0.85;
+  const fadeIn  = Math.min(1, elapsed * 5);
+  const fadeOut = elapsed > 1.6 ? Math.max(0, 1 - (elapsed - 1.6) * 3) : 1;
+
+  ctx.save();
+  ctx.globalAlpha = fadeIn * fadeOut;
+  ctx.translate(cx, H * 0.46);
+  ctx.scale(scale, scale);
+  ctx.textAlign = 'center';
+  ctx.font = `bold ${H*.13|0}px monospace`;
+  ctx.fillStyle = '#fff';
+  ctx.shadowColor = '#ffaa00';
+  ctx.shadowBlur = 55;
+  ctx.fillText('GAME START!', 0, 0);
+  ctx.restore();
+  ctx.shadowBlur = 0;
+}
+
+// ── Render: tap-to-start wait ─────────────────────
+function drawEntryWait(ts) {
+  const t = ts / 1000;
+  const pulse = 0.55 + 0.45 * Math.sin(t * 3.2);
+  ctx.textAlign = 'center';
+  ctx.font = `bold ${H*.11|0}px monospace`;
+  ctx.fillStyle = `rgba(255,220,60,${0.65 + pulse * .35})`;
+  ctx.shadowColor = '#ffaa00';
+  ctx.shadowBlur = 28 + pulse * 18;
+  ctx.fillText('TAP!', cx, H*.45);
+  ctx.shadowBlur = 0;
+  ctx.font = `${H*.028|0}px monospace`;
+  ctx.fillStyle = `rgba(220,180,100,${0.6 + pulse * .25})`;
+  ctx.fillText('画面をタップしてスタート', cx, H*.58);
+}
+
+// ── Difficulty ────────────────────────────────────
+const DIFFICULTIES = {
+  EASY:   {label:'EASY',   approachMs:3000, winP:150, winG:300, winOk:450, col:'#66bb6a'},
+  NORMAL: {label:'NORMAL', approachMs:2200, winP:100, winG:200, winOk:300, col:'#26c6da'},
+  HARD:   {label:'HARD',   approachMs:1600, winP:50,  winG:100, winOk:160, col:'#ff7043'},
+};
+const NOTE_THICK = 200;
+let diffKey = localStorage.getItem('rg_diff') || 'NORMAL';
+let APPROACH_MS, WIN_PERFECT, WIN_GREAT, WIN_GOOD;
+function applyDiff(k) {
+  diffKey = k; localStorage.setItem('rg_diff', k);
+  const d = DIFFICULTIES[k];
+  APPROACH_MS = d.approachMs; WIN_PERFECT = d.winP; WIN_GREAT = d.winG; WIN_GOOD = d.winOk;
+}
+applyDiff(diffKey);
+let offsetAdj = +(localStorage.getItem('rg_offset') || 0);
+
+const COLORS  = ['#ff7043','#26c6da','#66bb6a','#ab47bc'];
+const COLORS_DK=['#5a1a08','#0a4a55','#2a5530','#3a1050'];
+const GLOWS   = ['rgba(255,112,67,.7)','rgba(38,198,218,.7)','rgba(102,187,106,.7)','rgba(171,71,188,.7)'];
+const NAMES   = ['KICK','SNARE','MELODY','HI-HAT'];
+
+// ── DOM ───────────────────────────────────────────
+const cv  = document.getElementById('g');
+const ctx = cv.getContext('2d');
+
+// ── Layout ────────────────────────────────────────
+let W,H,cx,VY,JY,TL,TR,LW;
+
+function layout(){
+  const dpr = window.devicePixelRatio||1;
+  W = window.innerWidth; H = window.innerHeight;
+  cv.width  = W*dpr; cv.height = H*dpr;
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  cx = W/2;
+  VY = H*0.13;
+  JY = H*0.76;
+  TL = W*0.04;
+  TR = W*0.96;
+  LW = (TR-TL)/4;
+}
+
+function getY(d)     { return JY + d*(VY-JY); }
+function getS(d)     { return Math.max(0,(getY(d)-VY)/(JY-VY)); }
+function laneX(i,d)  { const s=getS(d),bx=TL+(i+.5)*LW; return cx+s*(bx-cx); }
+function laneHW(d)   { return getS(d)*LW/2; }
+
+// ── Audio ─────────────────────────────────────────
+const audio = new Audio('rockot-drive-breakbeat-173062.mp3');
+audio.load();
+let actx=null, aOff=0;
+
+function initACtx(){
+  if(!actx) actx=new(window.AudioContext||window.webkitAudioContext)();
+  if(actx.state==='suspended') actx.resume();
+}
+function syncOff(){ aOff = actx.currentTime - audio.currentTime; }
+function noteACT(ms){ return aOff + ms/1000; }
+
+function schedSound(lane, when){
+  if(!actx) return;
+  const v=0.28, d=actx.destination;
+  const g=actx.createGain(); g.connect(d);
+  if(lane===0){
+    const o=actx.createOscillator(); o.type='sine';
+    o.frequency.setValueAtTime(130,when);
+    o.frequency.exponentialRampToValueAtTime(42,when+0.09);
+    g.gain.setValueAtTime(v*1.4,when); g.gain.exponentialRampToValueAtTime(0.001,when+0.1);
+    o.connect(g); o.start(when); o.stop(when+0.11);
+  } else if(lane===1){
+    const o=actx.createOscillator();
+    o.frequency.value=220;
+    g.gain.setValueAtTime(v,when); g.gain.exponentialRampToValueAtTime(0.001,when+0.05);
+    o.connect(g); o.start(when); o.stop(when+0.05);
+    const bl=actx.sampleRate*0.05|0, buf=actx.createBuffer(1,bl,actx.sampleRate);
+    const dd=buf.getChannelData(0); for(let i=0;i<bl;i++) dd[i]=Math.random()*2-1;
+    const ns=actx.createBufferSource(); ns.buffer=buf;
+    const ng=actx.createGain();
+    ng.gain.setValueAtTime(v*0.55,when); ng.gain.exponentialRampToValueAtTime(0.001,when+0.05);
+    ns.connect(ng); ng.connect(d); ns.start(when);
+  } else if(lane===2){
+    const o=actx.createOscillator(); o.type='triangle'; o.frequency.value=660;
+    g.gain.setValueAtTime(v*0.85,when); g.gain.exponentialRampToValueAtTime(0.001,when+0.07);
+    o.connect(g); o.start(when); o.stop(when+0.07);
+  } else {
+    const bl=actx.sampleRate*0.028|0, buf=actx.createBuffer(1,bl,actx.sampleRate);
+    const dd=buf.getChannelData(0); for(let i=0;i<bl;i++) dd[i]=Math.random()*2-1;
+    const ns=actx.createBufferSource(); ns.buffer=buf;
+    const hpf=actx.createBiquadFilter(); hpf.type='highpass'; hpf.frequency.value=9000;
+    g.gain.setValueAtTime(v*1.2,when); g.gain.exponentialRampToValueAtTime(0.001,when+0.028);
+    ns.connect(hpf); hpf.connect(g); ns.start(when);
+  }
+}
+
+let nPtr=0;
+function resetNPtr(){
+  const ms=audio.currentTime*1000;
+  nPtr=0; while(nPtr<CHART.notes.length && CHART.notes[nPtr].time_ms<ms-100) nPtr++;
+}
+function schedUpcoming(curMs){
+  if(!actx) return;
+  const look=300;
+  while(nPtr<CHART.notes.length){
+    const n=CHART.notes[nPtr];
+    if(n.time_ms>curMs+look) break;
+    const w=noteACT(n.time_ms);
+    if(w>actx.currentTime+0.003) schedSound(n.lane,w);
+    nPtr++;
+  }
+}
+
+// ── Game state ────────────────────────────────────
+const GS={TITLE:0,PLAYING:1,PAUSED:2,RESULT:3};
+let gs=GS.TITLE;
+let flags;
+let score=0,combo=0,maxCombo=0;
+let cnt={p:0,g:0,ok:0,m:0};
+
+// ── Effects ───────────────────────────────────────
+let flash=[0,0,0,0];
+let jfx=[];
+let ptcl=[];
+let cScale=1;
+let stars=[];
+let btnList=[];
+let lastTimings=[];
+
+// 設定アイコンのヒットエリア（HUD）
+let settingsBtnRect = null;
+
+function genStars(){
+  stars=[];
+  for(let i=0;i<100;i++){
+    stars.push({x:Math.random()*W, y:Math.random()*VY*1.2,
+                r:Math.random()*1.5+0.3, a:Math.random()*0.55+0.15});
+  }
+}
+
+// ── Judgment ──────────────────────────────────────
+function tap(laneIdx, tapMs){
+  flash[laneIdx]=1;
+  const adj=tapMs+offsetAdj;
+  let bi=-1, bd=Infinity, bSgn=0;
+  for(let i=0;i<CHART.notes.length;i++){
+    if(flags[i]!==0) continue;
+    const n=CHART.notes[i];
+    if(n.lane!==laneIdx) continue;
+    const diff=adj-n.time_ms;
+    const df=Math.abs(diff);
+    if(df<=WIN_GOOD && df<bd){ bd=df; bi=i; bSgn=diff; }
+  }
+  if(bi<0) return;
+  flags[bi]=1;
+  const n=CHART.notes[bi];
+  let txt,col;
+  if(bd<=WIN_PERFECT){ txt='PERFECT!'; col='#ffe566'; cnt.p++; score+=300; combo++; }
+  else if(bd<=WIN_GREAT){ txt='GREAT!'; col='#66ddff'; cnt.g++; score+=200; combo++; }
+  else                  { txt='GOOD';   col='#88ff88'; cnt.ok++;score+=100; combo++; }
+  maxCombo=Math.max(maxCombo,combo);
+  cScale=1.5;
+  spawnJfx(txt,col,n.lane);
+  if(bd>WIN_PERFECT) spawnTimingFx(bSgn<0?'EARLY':'LATE',n.lane);
+  spawnPtcl(n.lane);
+  lastTimings.push(bSgn); if(lastTimings.length>10) lastTimings.shift();
+}
+
+function miss(idx){
+  if(flags[idx]!==0) return;
+  flags[idx]=2; combo=0; cnt.m++;
+  spawnJfx('MISS','#ff5555',CHART.notes[idx].lane);
+}
+
+function spawnJfx(txt,col,lane){
+  jfx.push({txt,col, x:TL+(lane+.5)*LW, y:JY-50, a:1.2, s:1.7});
+}
+function spawnTimingFx(txt,lane){
+  const col=txt==='EARLY'?'#ffaa44':'#4488ff';
+  jfx.push({txt,col, x:TL+(lane+.5)*LW, y:JY-90, a:0.85, s:1.0});
+}
+function spawnPtcl(lane){
+  const x=TL+(lane+.5)*LW, y=JY;
+  for(let i=0;i<12;i++){
+    const ang=Math.random()*Math.PI*2, spd=Math.random()*9+3;
+    ptcl.push({x,y,vx:Math.cos(ang)*spd,vy:Math.sin(ang)*spd-5,
+               a:1,r:Math.random()*4+2,col:COLORS[lane]});
+  }
+}
+
+// ── Draw helpers ──────────────────────────────────
+function rr(x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y); ctx.arcTo(x+w,y,x+w,y+r,r);
+  ctx.lineTo(x+w,y+h-r); ctx.arcTo(x+w,y+h,x+w-r,y+h,r);
+  ctx.lineTo(x+r,y+h); ctx.arcTo(x,y+h,x,y+h-r,r);
+  ctx.lineTo(x,y+r); ctx.arcTo(x,y,x+r,y,r);
+  ctx.closePath();
+}
+
+function drawBtn(label,x,y,w,h,bg,fg,cb){
+  ctx.fillStyle=bg; rr(x-w/2,y-h/2,w,h,h*.18); ctx.fill();
+  ctx.strokeStyle=fg; ctx.lineWidth=2; rr(x-w/2,y-h/2,w,h,h*.18); ctx.stroke();
+  ctx.fillStyle=fg; ctx.font=`bold ${h*.55|0}px monospace`;
+  ctx.textAlign='center'; ctx.fillText(label,x,y+h*.2);
+  btnList.push({x:x-w/2,y:y-h/2,w,h,cb});
+}
+
+// ── Render: background ────────────────────────────
+function drawBg(){
+  ctx.clearRect(0, 0, W, H);
+}
+
+// ── Render: perspective track ─────────────────────
+function drawTrack(curMs){
+  const hg=ctx.createLinearGradient(0,VY-20,0,VY+70);
+  hg.addColorStop(0,'rgba(200,110,30,0)');
+  hg.addColorStop(.35,'rgba(200,110,30,.20)');
+  hg.addColorStop(1,'rgba(200,110,30,0)');
+  ctx.fillStyle=hg; ctx.fillRect(0,VY-20,W,90);
+
+  const jBarH  = H * 0.13;
+  const jBarTop = JY - jBarH * 0.38;
+  const jBarBot = JY + jBarH * 0.62;
+
+  const jBg = ctx.createLinearGradient(0, jBarTop, 0, jBarBot);
+  jBg.addColorStop(0,   'rgba(255,240,80,0.04)');
+  jBg.addColorStop(0.4, 'rgba(255,240,80,0.13)');
+  jBg.addColorStop(1,   'rgba(255,240,80,0.02)');
+  ctx.fillStyle = jBg;
+  ctx.fillRect(TL, jBarTop, TR - TL, jBarH);
+
+  ctx.save();
+  ctx.shadowColor = '#ffe840'; ctx.shadowBlur = 32;
+  ctx.strokeStyle = 'rgba(255,248,100,0.95)'; ctx.lineWidth = 5;
+  ctx.beginPath(); ctx.moveTo(TL, JY); ctx.lineTo(TR, JY); ctx.stroke();
+  ctx.restore();
+
+  ctx.save();
+  ctx.strokeStyle = 'rgba(255,240,80,0.30)'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(TL, jBarTop); ctx.lineTo(TR, jBarTop); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(TL, jBarBot); ctx.lineTo(TR, jBarBot); ctx.stroke();
+  ctx.restore();
+
+  for(let i=0;i<4;i++){
+    const lx=TL+(i+.5)*LW;
+    ctx.save();
+    ctx.shadowColor=COLORS[i]; ctx.shadowBlur=flash[i]*28+8;
+    ctx.strokeStyle=COLORS[i]; ctx.lineWidth=3;
+    ctx.globalAlpha=.5+flash[i]*.5;
+    ctx.beginPath(); ctx.arc(lx,JY,LW*.32,0,Math.PI*2); ctx.stroke();
+    ctx.restore();
+  }
+}
+
+// ── Render: notes ─────────────────────────────────
+function drawNotes(curMs){
+  for(let i=CHART.notes.length-1;i>=0;i--){
+    const n=CHART.notes[i];
+    const ahead=n.time_ms-curMs;
+    if(ahead>APPROACH_MS+80) continue;
+    if(ahead<-NOTE_THICK-120) continue;
+    if(flags[i]===1) continue;
+
+    const dFront=ahead/APPROACH_MS;
+    const dBack=(ahead+NOTE_THICK)/APPROACH_MS;
+    const d1=Math.min(1,Math.max(-0.06,dFront));
+    const d2=Math.min(1,Math.max(-0.06,dBack));
+    const y1=getY(d1), y2=getY(d2);
+    if(y2>=y1) continue;
+
+    const pad=LW*0.01;
+    const x1L=laneX(n.lane,d1)-laneHW(d1)+pad;
+    const x1R=laneX(n.lane,d1)+laneHW(d1)-pad;
+    const x2L=laneX(n.lane,d2)-laneHW(d2)+pad;
+    const x2R=laneX(n.lane,d2)+laneHW(d2)-pad;
+
+    ctx.save();
+    if(flags[i]===2) ctx.globalAlpha=0.25;
+
+    const gr=ctx.createLinearGradient(0,y1,0,y2);
+    gr.addColorStop(0,COLORS[n.lane]);
+    gr.addColorStop(1,COLORS_DK[n.lane]);
+    ctx.shadowColor=GLOWS[n.lane];
+    ctx.shadowBlur=Math.max(0,16*(1-dFront*1.8));
+    ctx.fillStyle=gr;
+    ctx.beginPath();
+    ctx.moveTo(x1L,y1); ctx.lineTo(x1R,y1);
+    ctx.lineTo(x2R,y2); ctx.lineTo(x2L,y2);
+    ctx.closePath(); ctx.fill();
+
+    ctx.shadowBlur=0;
+    ctx.strokeStyle='rgba(255,255,255,.85)';
+    ctx.lineWidth=Math.max(1.5,3.5*getS(d1));
+    ctx.globalAlpha=(flags[i]===2)?0.1:0.9;
+    ctx.beginPath(); ctx.moveTo(x1L,y1); ctx.lineTo(x1R,y1); ctx.stroke();
+    ctx.restore();
+  }
+}
+
+// ── Render: lane flash ────────────────────────────
+function drawFlash(){
+  for(let i=0;i<4;i++){
+    if(flash[i]<0.02) continue;
+    const xL=TL+i*LW, xR=xL+LW;
+    const gr=ctx.createLinearGradient(0,JY,0,VY);
+    gr.addColorStop(0,`rgba(${hexRGB(COLORS[i])},${flash[i]*.55})`);
+    gr.addColorStop(1,`rgba(${hexRGB(COLORS[i])},0)`);
+    ctx.fillStyle=gr;
+    const xLt=laneX(i,.5)-laneHW(.5), xRt=laneX(i,.5)+laneHW(.5);
+    ctx.beginPath();
+    ctx.moveTo(xL,JY); ctx.lineTo(xR,JY);
+    ctx.lineTo(xRt,getY(.5)); ctx.lineTo(xLt,getY(.5));
+    ctx.closePath(); ctx.fill();
+  }
+}
+
+// ── Render: tap buttons (below judgment line) ─────
+function drawButtons(){
+  const btnY=JY, btnH=H-JY;
+  for(let i=0;i<4;i++){
+    const x=TL+i*LW;
+    ctx.globalAlpha=0.12+flash[i]*.30;
+    ctx.fillStyle=COLORS[i]; ctx.fillRect(x,btnY,LW,btnH);
+    ctx.globalAlpha=1;
+    ctx.fillStyle=COLORS[i];
+    ctx.globalAlpha=0.65+flash[i]*.35;
+    ctx.font=`bold ${LW*.13|0}px monospace`;
+    ctx.textAlign='center';
+    ctx.fillText(NAMES[i],x+LW/2,btnY+btnH*.58);
+    ctx.globalAlpha=1;
+    if(i>0){
+      ctx.strokeStyle='rgba(255,255,255,.08)'; ctx.lineWidth=1;
+      ctx.beginPath(); ctx.moveTo(x,btnY); ctx.lineTo(x,H); ctx.stroke();
+    }
+  }
+}
+
+// ── Render: particles & judge text ────────────────
+function drawFX(){
+  for(const p of ptcl){
+    ctx.save();
+    ctx.globalAlpha=Math.min(1,p.a);
+    ctx.fillStyle=p.col; ctx.shadowColor=p.col; ctx.shadowBlur=5;
+    ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2); ctx.fill();
+    ctx.restore();
+  }
+  for(const j of jfx){
+    ctx.save();
+    ctx.globalAlpha=Math.min(1,j.a);
+    ctx.fillStyle=j.col; ctx.shadowColor=j.col; ctx.shadowBlur=10;
+    ctx.font=`bold ${H*.044*j.s|0}px monospace`;
+    ctx.textAlign='center'; ctx.fillText(j.txt,j.x,j.y);
+    ctx.restore();
+  }
+}
+
+// ── Render: settings gear icon ────────────────────
+function drawSettingsIcon(){
+  const sz = Math.max(32, H * 0.055);
+  const x = W - sz * 0.7;
+  const y = H * 0.12;
+  ctx.save();
+  ctx.globalAlpha = 0.55;
+  ctx.font = `${sz|0}px monospace`;
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#aaa';
+  ctx.fillText('⚙', x, y);
+  ctx.restore();
+  // ヒットエリアを登録
+  settingsBtnRect = { x: x - sz * 0.7, y: y - sz, w: sz * 1.4, h: sz * 1.2 };
+}
+
+// ── Render: HUD ───────────────────────────────────
+function drawHUD(){
+  const prog=audio.duration?(audio.currentTime/audio.duration):0;
+  ctx.fillStyle='rgba(255,255,255,.07)'; ctx.fillRect(0,0,W,5);
+  ctx.fillStyle='#55aaff'; ctx.fillRect(0,0,W*prog,5);
+
+  ctx.fillStyle='#fff'; ctx.shadowColor='#55aaff'; ctx.shadowBlur=8;
+  ctx.font=`bold ${H*.042|0}px monospace`;
+  ctx.textAlign='right';
+  ctx.fillText(String(score).padStart(7,'0'),W-16,H*.065);
+  ctx.shadowBlur=0;
+
+  if(combo>=2){
+    ctx.font=`bold ${H*.058*cScale|0}px monospace`;
+    ctx.textAlign='center'; ctx.fillStyle='#ffd700';
+    ctx.shadowColor='#ff9900'; ctx.shadowBlur=12;
+    ctx.fillText(combo+' COMBO',cx,H*.068);
+    ctx.shadowBlur=0;
+  }
+
+  ctx.font=`bold ${H*.022|0}px monospace`; ctx.textAlign='left'; ctx.shadowBlur=0;
+  ctx.fillStyle=DIFFICULTIES[diffKey].col;
+  ctx.fillText(diffKey,14,H*.105);
+  if(offsetAdj!==0){
+    ctx.fillStyle=offsetAdj>0?'#ffaa44':'#4488ff';
+    ctx.font=`${H*.018|0}px monospace`;
+    ctx.fillText((offsetAdj>=0?'+':'')+offsetAdj+'ms',14,H*.133);
+  }
+
+  ctx.fillStyle='rgba(255,255,255,.3)';
+  ctx.font=`${H*.038|0}px monospace`;
+  ctx.textAlign='left'; ctx.fillText('⏸',14,H*.065);
+
+  // 設定アイコン
+  drawSettingsIcon();
+}
+
+// ── Render: screens ───────────────────────────────
+function drawTitle(){
+  btnList=[];
+  settingsBtnRect = null;
+  drawBg();
+
+  ctx.fillStyle='#fff'; ctx.shadowColor='#55aaff'; ctx.shadowBlur=20;
+  ctx.font=`bold ${Math.min(H*.07,W*.055)|0}px monospace`;
+  ctx.textAlign='center'; ctx.fillText('RHYTHM GAME',cx,H*.14);
+  ctx.shadowBlur=0;
+  ctx.fillStyle='#778'; ctx.font=`${Math.min(H*.024,W*.018)|0}px monospace`;
+  ctx.fillText(CHART.song_id.replace(/_/g,' ').toUpperCase(),cx,H*.22);
+  ctx.fillText(`BPM ${CHART.bpm}  ·  ${CHART.notes.length} notes`,cx,H*.28);
+
+  ctx.fillStyle='#556'; ctx.font=`${Math.min(H*.019,11)|0}px monospace`;
+  ctx.textAlign='center'; ctx.fillText('DIFFICULTY',cx,H*.37);
+  const dbh=Math.min(H*.075,38), dbw=Math.min(W*.2,120), dsp=Math.min(W*.23,140);
+  ['EASY','NORMAL','HARD'].forEach((k,i)=>{
+    const bx=cx+(i-1)*dsp, sel=diffKey===k;
+    const dc=DIFFICULTIES[k].col;
+    drawBtn(k,bx,H*.44,dbw,dbh,sel?'#0f1825':'#0d0d20',sel?dc:'#334',()=>applyDiff(k));
+  });
+
+  ctx.fillStyle='#556'; ctx.font=`${Math.min(H*.019,11)|0}px monospace`;
+  ctx.textAlign='center'; ctx.fillText('OFFSET',cx,H*.565);
+  const obw=Math.min(W*.14,90), obh=Math.min(H*.065,32);
+  const osp=Math.min(W*.2,130);
+  drawBtn('-10ms',cx-osp,H*.625,obw,obh,'#0d0d20','#445',()=>{
+    offsetAdj=Math.max(-200,offsetAdj-10); localStorage.setItem('rg_offset',offsetAdj);
+  });
+  const offStr=(offsetAdj>=0?'+':'')+offsetAdj+'ms';
+  ctx.fillStyle=offsetAdj===0?'#667':offsetAdj>0?'#ffaa44':'#4488ff';
+  ctx.font=`bold ${Math.min(H*.033,20)|0}px monospace`;
+  ctx.textAlign='center'; ctx.fillText(offStr,cx,H*.638);
+  drawBtn('+10ms',cx+osp,H*.625,obw,obh,'#0d0d20','#445',()=>{
+    offsetAdj=Math.min(200,offsetAdj+10); localStorage.setItem('rg_offset',offsetAdj);
+  });
+  ctx.fillStyle='#445'; ctx.font=`${Math.min(H*.016,10)|0}px monospace`;
+  ctx.fillText('EARLY続き→+ / LATE続き→−',cx,H*.680);
+
+  const bh2=Math.min(H*.1,50), bw2=Math.min(W*.38,200);
+  drawBtn('▶ START',cx,H*.78,bw2,bh2,'#0e1a30','#66ccff',startGame);
+  ctx.fillStyle='#556'; ctx.font=`${Math.min(H*.02,12)|0}px monospace`;
+  ctx.textAlign='center';
+  ctx.fillText(CHART.song_id.replace(/_/g,'-')+'.mp3',cx,H*.875);
+
+  // 設定アイコン（タイトル画面でも）
+  drawSettingsIcon();
+}
+
+function drawPaused(){
+  ctx.fillStyle='rgba(0,0,0,.72)'; ctx.fillRect(0,0,W,H);
+  ctx.fillStyle='#fff'; ctx.font=`bold ${H*.08|0}px monospace`;
+  ctx.textAlign='center'; ctx.fillText('PAUSED',cx,H*.42);
+  ctx.fillStyle='#aaa'; ctx.font=`${H*.033|0}px monospace`;
+  ctx.fillText('タップで再開',cx,H*.54);
+}
+
+function drawResult(){
+  btnList=[];
+  settingsBtnRect = null;
+  ctx.fillStyle='#04040e'; ctx.fillRect(0,0,W,H);
+  ctx.fillStyle='#ffd700'; ctx.shadowColor='#ff8800'; ctx.shadowBlur=20;
+  ctx.font=`bold ${H*.065|0}px monospace`;
+  ctx.textAlign='center'; ctx.fillText('RESULT',cx,H*.14);
+  ctx.shadowBlur=0;
+
+  ctx.fillStyle='#fff'; ctx.font=`bold ${H*.1|0}px monospace`;
+  ctx.fillText(String(score).padStart(7,'0'),cx,H*.28);
+
+  const tot=cnt.p+cnt.g+cnt.ok+cnt.m;
+  const acc=tot?((cnt.p*100+cnt.g*70+cnt.ok*40)/(tot*100)*100).toFixed(1):0;
+  ctx.fillStyle='#adf'; ctx.font=`${H*.035|0}px monospace`;
+  ctx.fillText(`Accuracy ${acc}%   Max Combo ${maxCombo}`,cx,H*.38);
+
+  [['PERFECT',cnt.p,'#ffe566'],['GREAT',cnt.g,'#66ddff'],
+   ['GOOD',cnt.ok,'#88ff88'],['MISS',cnt.m,'#ff6666']
+  ].forEach(([t,c,col],i)=>{
+    const ry=H*.47+i*H*.065;
+    ctx.textAlign='right'; ctx.fillStyle=col;
+    ctx.font=`${H*.034|0}px monospace`;
+    ctx.fillText(t,cx-10,ry);
+    ctx.textAlign='left'; ctx.fillText(String(c).padStart(4),cx+20,ry);
+  });
+
+  drawBtn('▶  PLAY AGAIN',cx,H*.87,W*.32,H*.09,'#0e1a30','#66ccff',resetToTitle);
+
+  // 設定アイコン
+  drawSettingsIcon();
+}
+
+// ── Update ────────────────────────────────────────
+function update(){
+  if(gs!==GS.PLAYING) return;
+  const ms=audio.currentTime*1000;
+
+  for(let i=0;i<CHART.notes.length;i++){
+    if(flags[i]!==0) continue;
+    if(ms-CHART.notes[i].time_ms>WIN_GOOD+25) miss(i);
+  }
+
+  schedUpcoming(ms);
+
+  for(let i=0;i<4;i++) flash[i]*=0.78;
+  cScale=1+(cScale-1)*0.82;
+
+  for(let i=ptcl.length-1;i>=0;i--){
+    const p=ptcl[i]; p.x+=p.vx; p.y+=p.vy; p.vy+=0.45; p.a-=0.04; p.r*=0.95;
+    if(p.a<=0) ptcl.splice(i,1);
+  }
+  for(let i=jfx.length-1;i>=0;i--){
+    const j=jfx[i]; j.y-=1.6; j.a-=0.026; j.s=Math.max(1,j.s-0.05);
+    if(j.a<=0) jfx.splice(i,1);
+  }
+  if(audio.ended) gs=GS.RESULT;
+}
+
+// ── Main loop ─────────────────────────────────────
+function loop(ts){
+  // 設定画面が開いている間はThree.jsだけ回す（canvas描画はスキップ）
+  if (settingsOpen) {
+    if (threeRenderer) threeRenderer.render(threeScene, threeCamera);
+    requestAnimationFrame(loop);
+    return;
+  }
+
+  updateThree(ts);
+  update();
+
+  if (!audioReady) {
+    drawBg(); drawAudioUnlock(ts);
+  } else if (!geoOk && !geoDebug) {
+    drawBg();
+    if (geoPhase >= 2) {
+      const intensity = (1 - Math.min(1, geoDistM / 100)) * 7;
+      const dx = (Math.random() * 2 - 1) * intensity;
+      const dy = (Math.random() * 2 - 1) * intensity;
+      const dpr = window.devicePixelRatio || 1;
+      ctx.setTransform(dpr, 0, 0, dpr, dx, dy);
+    }
+    drawGeoWait(ts);
+    if (geoPhase >= 2) {
+      const dpr = window.devicePixelRatio || 1;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+  } else if (entryAnim) {
+    drawBg(); drawEntryAnim(ts);
+  } else {
+    const ms=audio.currentTime*1000;
+    switch(gs){
+      case GS.TITLE:   drawBg(); drawTitle(); break;
+      case GS.PLAYING:
+      case GS.PAUSED:
+        drawBg(); drawTrack(ms); drawFlash();
+        drawNotes(ms); drawFX(); drawButtons(); drawHUD();
+        if(gs===GS.PAUSED) drawPaused();
+        break;
+      case GS.RESULT:  drawBg(); drawResult(); break;
+    }
+  }
+  requestAnimationFrame(loop);
+}
+
+// ── Game control ──────────────────────────────────
+function startGame(){
+  flags=new Uint8Array(CHART.notes.length);
+  score=0; combo=0; maxCombo=0; cnt={p:0,g:0,ok:0,m:0};
+  flash=[0,0,0,0]; jfx=[]; ptcl=[]; cScale=1; lastTimings=[];
+  gs=GS.PLAYING;
+  stopAmbient();
+  initACtx();
+  audio.currentTime=0;
+  audio.volume=1.0;
+  audio.play()
+    .then(() => { syncOff(); resetNPtr(); })
+    .catch(err => console.warn('[RhythmGame] audio.play():', err.name));
+}
+function resetToTitle(){
+  gs=GS.TITLE; audio.pause(); audio.currentTime=0;
+}
+
+// ── Input ─────────────────────────────────────────
+function onInput(cx_, cy_){
+  // 設定オーバーレイが開いているときはキャンバスタップを無視
+  if (settingsOpen) return;
+
+  if(!audioReady){
+    audioReady=true;
+    initAmbient(); initACtx();
+    audio.play().then(()=>audio.pause()).catch(()=>{});
+    return;
+  }
+
+  // 設定アイコンのタップ判定
+  if (settingsBtnRect) {
+    const r = settingsBtnRect;
+    if (cx_ >= r.x && cx_ <= r.x + r.w && cy_ >= r.y && cy_ <= r.y + r.h) {
+      openSettings();
+      return;
+    }
+  }
+
+  if(gs===GS.TITLE||gs===GS.RESULT){
+    for(const b of btnList)
+      if(cx_>=b.x&&cx_<=b.x+b.w&&cy_>=b.y&&cy_<=b.y+b.h){ b.cb(); return; }
+    return;
+  }
+  if(gs===GS.PAUSED){
+    gs=GS.PLAYING; audio.play().then(()=>syncOff()); return;
+  }
+  if(cx_<W*.1&&cy_<H*.1){ audio.pause(); gs=GS.PAUSED; return; }
+  const li=Math.floor((cx_/W)*4);
+  if(li>=0&&li<4) tap(li, audio.currentTime*1000);
+}
+
+cv.addEventListener('touchstart',e=>{
+  e.preventDefault();
+  initAmbient();
+  for(const t of e.changedTouches) onInput(t.clientX,t.clientY);
+},{passive:false});
+cv.addEventListener('mousedown',e=>{ initAmbient(); onInput(e.clientX,e.clientY); });
+
+// ── Resize ────────────────────────────────────────
+window.addEventListener('resize',()=>{ layout(); genStars(); btnList=[]; });
+
+audio.addEventListener('ended',()=>{ if(gs===GS.PLAYING) gs=GS.RESULT; });
+audio.addEventListener('seeked',()=>{ if(actx){ syncOff(); resetNPtr(); }});
+
+// ── Util ──────────────────────────────────────────
+function hexRGB(hex){
+  const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);
+  return `${r},${g},${b}`;
+}
+
+// ── Orientation lock ──────────────────────────────
+if(screen.orientation&&screen.orientation.lock)
+  screen.orientation.lock('landscape').catch(()=>{});
+
+// ── Init ──────────────────────────────────────────
+layout(); genStars(); initThree(); initGeo();
+initSettingsUI();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
