@@ -189,14 +189,14 @@ function initThree() {
   fillLight.position.set(-4, 8, -6);
   threeScene.add(fillLight);
 
-  const roadMat = new THREE.MeshLambertMaterial({ color: 0xb8b8b8 });
+  const roadMat = new THREE.MeshLambertMaterial({ color: 0x787878 });
   const roadMesh = new THREE.Mesh(new THREE.PlaneGeometry(ROAD_W, ROAD_LEN), roadMat);
   roadMesh.rotation.x = -Math.PI / 2;
   roadMesh.position.set(0, 0, -ROAD_LEN / 2);
   threeScene.add(roadMesh);
 
   for (const side of [-1, 1]) {
-    const mat = new THREE.MeshLambertMaterial({ color: 0xf0f0f0 });
+    const mat = new THREE.MeshLambertMaterial({ color: 0x9b7540 });
     const mesh = new THREE.Mesh(new THREE.PlaneGeometry(5, ROAD_LEN), mat);
     mesh.rotation.x = -Math.PI / 2;
     mesh.position.set(side * (ROAD_W / 2 + 2.5), -0.01, -ROAD_LEN / 2);
